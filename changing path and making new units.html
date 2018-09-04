@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>barracks</title>
+	<canvas id="canvas" width="1050px" height="700px" style="border:1px solid #000000;"></canvas>
+	<script src="VectorsOld.js"></script>
+	<script src="pathfinding.js"></script>
+</head>
+<body>
+
+
+
+<script type="text/javascript">
+var c=document.getElementById("canvas");
+var ctx=c.getContext("2d");
+
+
+var selected = [];
+var target = new Vector(null, null);
+var cellLength = 35;
+var hCellLength = 17.5; //half cell length
+
+
+Cell = function(x, y) {
+	Vector.call(this, x, y); //gives x, y propoerties like a vector
+	this.distance = null; //the distance from the target cell
+	this.direction = zeroVector; // the direction vector to the neighbouring cell with the least distance
+}
+Cell.prototype = new Vector(); //Cells inherit vector functions
+
+Cell.prototype.neighboursOf = function() {}
+
+//Create a grid of cells
+var grid = new Array();
+var gridWidth = 30;
+var gridHeight = 20;
+
+//each cell's co-ords are at it's centre
+function generateGrid(gridWidth, gridHeight) {
+	for (var x = 0; x < gridWidth; x++) {
+			var arr = new Array();
+			for (var y = 0; y < gridHeight; y++) {
+				arr[y] = new Cell(x,y);
+			}
+			grid[x] = arr;
+		}
+}
+generateGrid(gridWidth, gridHeight);
+
+var pathEnd = grid[20][8];
+
+
+//define barracks
+Building = function(x, y, width, length, colour) {
+	Vector.call(this, x, y);
+	this.width = width
+	this.length = length
+	this.rally = new Vector(x + width, y + length)
+	this.gridPosition = new Vector(x/cellLength, y/cellLength);
+	this.gridDimensions = new Vector (width/cellLength, length/cellLength);
+	this.draw = function() {
+		ctx.fillStyle = colour;
+		ctx.fillRect(x , y, width, length);
+	}
+}
+Building.prototype = new Vector();
+
+pinkrax = new Building(35, 35, 175, 105, "pink");
+greyrax = new Building(490, 35, 175, 105, "#12345678");
+testrax = new Building(35, 490, 175, 105, "#FF9900");
+poopyrax = new Building(18*35, 12*35, 175, 105, 'blue');
+raxyrax = new Building(350, 350, 175, 105, 'green');
+
+
+var buildings = [pinkrax, greyrax, testrax, raxyrax, poopyrax];
+var buildings2 = [raxyrax];
+
+var towers = new Array();
+
+function buildtowers() {
+	for (var i = 0; i < buildings.length; i++) {
+	b = buildings[i].gridPosition;
+	c = buildings[i].gridDimensions;
+	for (var x = 0; x < c.x; x++) {
+		for (var y = 0; y < c.y; y++) {
+			towers.push(grid[b.x + x][b.y + y]);
+		}
+	}
+}
+}
+
+function gamestart() {
+	buildtowers();
+}
+gamestart();
+
+
+
+var agents = new Array();
+
+Agent = function(x, y) {
+	Vector.call(this, x, y);
+	this.velocity = zeroVector;
+	this.rotation = 0;
+	this.maxForce = 3;
+	this.maxSpeed = 0.5;
+	this.radius = 12;
+	this.width = 30;
+	this.height = 30;
+	this.path = new Array();
+	this.pathIndex = 1;
+}
+
+Agent.prototype = new Vector();
+
+CreateAgent = function(x, y) {
+	agents.push(new Agent(x, y));
+}
+
+
+CreateAgent(4*35 + 17.5, 4*35 + 17.5);
+
+CreateAgent(0,0);
+
+CreateAgent(10*35 + 17.5, 8*35 + 17.5);
+
+CreateAgent(17.5, 19*35 + 17.5);
+
+
+agents[0].velocity.x = 5;
+
+
+//Helper method. Returns true if this grid location in bounds
+function isInBounds(x, y) {
+	return x >= 0 && y >= 0 && x < gridWidth && y < gridHeight;
+}
+
+
+//function that finds adjacent (but not diagonal) cells and returns an array of them
+function neighboursOf(vector) {
+	var v = vector;
+	var x = v.x;
+	var y = v.y;
+	var neighbours = new Array();
+
+	if (isInBounds(x - 1, y)){
+		neighbours.push(grid[x - 1][y]);
+	} 
+	if (isInBounds(x, y - 1)){
+		neighbours.push(grid[x][y - 1]);
+	} 
+	if (isInBounds(x + 1, y)){
+		neighbours.push(grid[x + 1][y]);
+	
+	} 
+	if (isInBounds(x, y + 1)){
+		neighbours.push(grid[x][y + 1]);
+	}
+	return neighbours;
+}
+
+
+//Give each cell a distance from the pathEnd using a dijkstra grid
+
+generateDijkstraGrid(pathEnd);
+generateFlowField();
+
+function generatePathFromDijkstraGrid(agent) {
+	var path = new Array();
+	var pathStart = grid[Math.floor(agent.x/cellLength)][Math.floor(agent.x/cellLength)]; 
+	var pathEnd = grid[20][20]; //for now
+	var currentCell = pathStart
+
+	while (currentCell.distance > 0) {
+		var i;
+		var n = neighboursOf(currentCell)
+		for (i = 0; i < n.length; i++) {
+				if (n[i].distance < currentCell.distance) {
+					currentCell = n[i];
+					path.push(c);
+				}
+		}
+	}
+}
+
+
+//press f to create
+window.onkeydown = function (e) {
+    var code = e.keyCode ? e.keyCode : e.which;
+
+    for (var i = 0; i < selected.length; i++) {
+    	s = selected[i];
+    	if (code == 70 && s instanceof Building) {
+    		CreateAgent(s.x + s.width, s.y + s.length);
+    	}
+    }
+};
+
+testArray = ['a', 'b', 'c', 'd', 'e'];
+
+//change selected building with left click
+canvas.addEventListener('click', function(e) {
+
+	//if shift click add what was selected
+	if (e.shiftKey) {
+		for (var i = 0; i < buildings.length; i++) {
+			b = buildings[i];
+			
+			if ((b.x <= e.clientX && e.clientX <= b.x + b.width) &&  (b.y <= e.clientY && e.clientY <= b.y + b.width)) {
+
+				//check if not already in selected
+				var wasAlreadySelected = false
+				for (var i = 0; i < selected.length; i++) {
+					if (selected[i] == b) {
+						selected.splice(i, 1);
+						wasAlreadySelected = true;
+					}
+				}
+
+				if (wasAlreadySelected == false) {
+					selected.push(b);
+				}
+			}
+		}
+	}
+
+	//if just left click
+	else {
+		var newSelection = [];
+
+		//find out what you selected
+		for (var i = 0; i < buildings.length; i++) {
+			b = buildings[i];
+			if ((b.x <= e.clientX && e.clientX <= b.x + b.width) &&  (b.y <= e.clientY && e.clientY <= b.y + b.width)) {
+				newSelection.push(b);
+			}
+		}
+
+		//if newSelection isn't nothing then make it the new selection
+		if (newSelection.length > 0) {
+			selected = newSelection;
+		} 
+	}
+	console.log(selected);
+});
+
+
+//right click
+canvas.addEventListener('contextmenu', function(ev) {
+    ev.preventDefault();
+    var i;
+    for (i = 0; i < buildings.length; i++) {
+    	b = buildings[i];
+    	//if (b == selected) {
+    		b.rally.x = ev.clientX -9;
+    		b.rally.y = ev.clientY -9; //click was always a bit off for some reason
+    		pathEnd = grid[Math.floor(ev.clientX/cellLength)][Math.floor(ev.clientY/cellLength)];
+    	//}
+    generateDijkstraGrid(pathEnd);
+    }
+    return false;
+
+}, false);
+
+function moveAgents() {
+	for (var i = 0; i < agents.length; i++) {
+		var a = agents[i];
+
+
+		//if we reach the end of the path stop
+		if (a.pathIndex == path.length) {
+			continue;
+		}
+
+
+		var distanceToMove = a.maxSpeed;
+		var vectorToTarget = path[a.pathIndex].minus(a);
+		var distanceToTarget = vectorToTarget.magnitude();
+
+		//If we arrive at the target this tick
+		if (distanceToTarget < distanceToMove) {
+			a.x = path[a.pathIndex].x;
+			a.y = path[a.pathIndex].y;
+			a.pathIndex++;
+
+			//if we reach the end of the path stop moving
+			if (a.pathIndex == path.length) {
+				a.velocity = zeroVector;
+				continue;
+			}
+
+		}
+
+
+		//set the velocity to the currect speed
+		a.velocity = (vectorToTarget.norm()).mul(a.maxSpeed); 
+
+		//Move a bit
+		a.x += a.velocity.x;
+		a.y += a.velocity.y;
+	}
+}
+
+function moveAgents() {
+	for (var i = 0; i < agents.length; i++) {
+		var a = agents[i];
+
+
+		//if we reach the end of the path stop
+		if (a.pathIndex == a.path.length) {
+			continue;
+		}
+
+
+		var distanceToMove = a.maxSpeed;
+		var vectorToTarget = a.path[a.pathIndex].minus(a);
+		var distanceToTarget = vectorToTarget.magnitude();
+
+		//If we arrive at the target this tick
+		if (distanceToTarget < distanceToMove) {
+			a.x = a.path[a.pathIndex].x;
+			a.y = a.path[a.pathIndex].y;
+			a.pathIndex++;
+
+			//if we reach the end of the path stop moving
+			if (a.pathIndex == a.path.length) {
+				a.velocity = zeroVector;
+				continue;
+			}
+
+		}
+
+
+		//set the velocity to the currect speed
+		a.velocity = (vectorToTarget.norm()).mul(a.maxSpeed); 
+
+		//Move a bit
+		a.x += a.velocity.x;
+		a.y += a.velocity.y;
+
+		//update the rotation
+		a.rotation = vectorToTarget.angle();
+	}
+}
+
+
+
+
+/*
+var path1 = [
+	new Vector(150, 200),
+	new Vector(200, 200),
+	new Vector(250, 250),
+	new Vector(300, 250),
+	new Vector(350, 250),
+	new Vector(400, 150),
+];
+*/
+
+var path = generatePathFromDijkstraGrid(agents[0]);
+
+function generatePaths() {
+
+	for (var i = 0; i < agents.length; i ++) {
+		agents[i].path = generatePathFromDijkstraGrid(agents[i]);
+	}	
+}
+generatePaths();
+
+
+function drawPath(path) {
+	for (var i = 0; i < path.length -1; i++) {
+		ctx.beginPath();
+		ctx.moveTo(path[i].x, path[i].y);
+		ctx.lineTo(path[i + 1].x, path[i + 1].y);
+		ctx.stroke();		
+	}
+}
+
+function drawPath2(path) {
+	for (var i = 0; i < path.length -1; i++) {
+		ctx.beginPath();
+		ctx.moveTo(path[i].x*cellLength + hCellLength, path[i].y*cellLength + hCellLength);
+		ctx.lineTo(path[i + 1].x*cellLength + hCellLength, path[i + 1].y*cellLength + hCellLength);
+		ctx.stroke();		
+	}
+}
+
+
+function generatePathFromDijkstraGrid(startingVector) {
+	var path = [startingVector];
+
+	for (var i = 0; i < path.length; i++) {
+		currentCell = grid[Math.floor(path[i].x/cellLength)][Math.floor(path[i].y/cellLength)]
+
+		//Consider the neighbours and find the one with the smallest distance to set as the nextCell
+		neighbours = allNeighboursOf(currentCell);
+		nextCell = currentCell;
+		for (var j = 0; j < neighbours.length; j++) {
+			var n = neighbours[j];
+			if (n.distance < nextCell.distance) {
+				nextCell = n;
+			}
+		}
+
+		//if a cell with a smaller distance was found add it to the path
+		if (nextCell.distance < currentCell.distance) {
+			path.push(new Vector (nextCell.x*cellLength + hCellLength, nextCell.y*cellLength + hCellLength));
+		}
+	}
+	return path;
+}
+
+
+
+////////////////////////////////////////////////////////////////////////
+//DRAWING
+
+function drawBuildingRally(building) {
+	ctx.beginPath();
+	ctx.moveTo(building.x + building.width, building.y + building.length); //centre of building
+	ctx.lineTo(building.rally.x, building.rally.y);
+	ctx.strokeStyle="red";
+	ctx.stroke();
+}
+
+//Writes the cell distance value in eachcell
+function drawCellDistances() {
+	for (var x = 0; x < gridWidth; x++) {
+		for (var y = 0; y < gridHeight; y++) {
+			grid.font = '10px'
+			if (grid[x][y].distance <= 1000 && grid[x][y].distance >= 0) {
+				//check if the distance is an integer, otherwise display to 2 decimal places
+				ctx.fillText(grid[x][y].distance, grid[x][y].x*cellLength + 11, (grid[x][y].y)*cellLength + 21)
+			}
+		}
+	}
+}
+
+function drawPathEndIndicator(pathEnd) {
+	ctx.fillStyle = "red";
+	ctx.beginPath();
+	ctx.arc(pathEnd.x*cellLength + hCellLength, pathEnd.y*cellLength + hCellLength, 30, 0, 2*Math.Pi);
+	ctx.stroke();
+
+	ctx.beginPath();
+	ctx.arc(pathEnd.x*cellLength + hCellLength, pathEnd.y*cellLength + hCellLength, 16, 0, 2*Math.PI);
+	ctx.strokeStyle = 'green';
+	ctx.stroke();
+}
+
+//Literally just drawing lines
+function drawGridLines() {
+	ctx.strokeStyle = "black";
+	for (var x = 0; x < gridWidth; x++){
+		ctx.beginPath();
+		ctx.moveTo(x*cellLength, 0);
+		ctx.lineTo(x*cellLength, gridHeight*cellLength);
+		ctx.stroke();
+		}
+	for (var y = 0; y < gridHeight; y++){
+		ctx.beginPath();
+		ctx.moveTo(0, y*cellLength);
+		ctx.lineTo(gridWidth*cellLength, y*cellLength);
+		ctx.stroke();
+		}
+}
+
+function drawAgents() {
+	
+	for (var i = 0; i < agents.length; i++) {
+		var a = agents[i];
+		//save the state
+		ctx.save();
+
+		//draw a circle
+		ctx.beginPath();
+		ctx.arc(a.x, a.y, a.radius, 0, 2*Math.PI,true);
+		ctx.closePath();
+		ctx.lineWidth = 2
+		ctx.strokeStyle = "black";
+		ctx.stroke()
+
+		//draw an arrow inside to indicate velocity
+		//arrow line
+		ctx.beginPath();
+		ctx.moveTo(a.x, a.y);
+		ctx.lineTo(a.x + a.radius*Math.cos(a.rotation), a.y + a.radius*Math.sin(a.rotation));
+		ctx.stroke();
+		//arrow head
+
+		//restore back to original stage
+		ctx.restore();
+	}
+}
+
+function drawBuildings() {
+	for (var i = 0; i< buildings.length; i++) {
+		b = buildings[i];
+
+		b.draw();
+		//drawBuildingRally(b);
+
+		if (selected == b) {
+			ctx.beginPath();
+			ctx.arc(b.x + b.width/2, b.y + b.length/2, Math.sqrt(Math.pow(b.width/2,2) + Math.pow(b.length/2,2)), 0, 2*Math.PI );
+			ctx.stroke();
+		}
+	}
+
+	for (var i = 0; i < selected.length; i ++) {
+		s = selected[i];
+		if (s instanceof Building) {
+			ctx.beginPath();
+			ctx.arc(s.x + s.width/2, s.y + s.length/2, Math.sqrt(Math.pow(s.width/2,2) + Math.pow(s.length/2,2)), 0, 2*Math.PI );
+			ctx.stroke();			
+		}
+	}
+}
+
+function draw() {
+	ctx.clearRect(0,0, canvas.width, canvas.height);
+
+	
+	drawGridLines();
+	drawAgents();
+	drawPathEndIndicator(pathEnd);
+	drawBuildings();
+	drawCellDistances();
+	// drawFlowField()
+	generatePaths();
+	moveAgents();
+
+
+	for (var i = 0; i < agents.length; i++) {
+		drawPath(generatePathFromDijkstraGrid(agents[i]));
+	}
+	
+	window.requestAnimationFrame(draw);
+}
+
+window.requestAnimationFrame(draw);
+
+
+</script>
+
+</body>
+</html>
