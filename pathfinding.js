@@ -1,7 +1,7 @@
 //Helper method. Returns true if this grid location in bounds
-function isInBounds(x, y) {
-	return x >= 0 && y >= 0 && x < gridWidth && y < gridHeight;
-}
+// function isInBounds(x, y) {
+// 	return x >= 0 && y >= 0 && x < gridWidth && y < gridHeight;
+// }
 
 
 //function that finds adjacent (but not diagonal) cells and returns an array of them
