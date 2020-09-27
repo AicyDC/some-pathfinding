@@ -8,9 +8,4 @@ int doubler(int x) {
 
 int isInBounds(int x, int y, int gridWidth, int gridHeight) {
 	return x >= 0 && y >= 0 && x < gridWidth && y < gridHeight;
-  // if ( x >= 0 && y >= 0 && x < gridWidth && y < gridHeight) {
-  //   return 0;
-  // } else {
-  //   return 1;
-  // }
 }
