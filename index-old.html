@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Flow field</title>
+	<canvas id="canvas" width="1050px" height="700px" style="border:1px solid #000000;"></canvas>
+	<script src="VectorsOld.js"></script>
+
+
+</head>
+<body>
+
+<script type="text/javascript">
+
+//Create a 30x20 grid of cells where each cells can have values
+
+Cell = function(x, y) {
+	Vector.call(this, x, y); //gives x, y propoerties like a vector
+	this.distance = null; //the distance from the target cell
+	this.direction = zeroVector; // the direction vector to the neighbouring cell with the least distance
+}
+Cell.prototype = new Vector(); //Cells inherit vector functions
+
+Cell.prototype.neighboursOf = function() {}
+
+//Create a grid of cells
+var grid = new Array();
+var gridWidth = 30;
+var gridHeight = 20;
+
+//each cell's co-ords are at it's centre
+function generateGrid(gridWidth, gridHeight) {
+	for (var x = 0; x < gridWidth; x++) {
+			var arr = new Array();
+			for (var y = 0; y < gridHeight; y++) {
+				arr[y] = new Cell(x,y);
+			}
+			grid[x] = arr;
+		}
+}
+generateGrid(gridWidth, gridHeight);
+
+
+//Create some our agents doing the pathfinding
+
+var agents = new Array();
+
+Agent = function(x, y) {
+	Vector.call(this, x, y);
+	this.velocity = zeroVector;
+	this.rotation = 0;
+	this.maxForce = 0.075;
+	this.maxSpeed = 0.075;
+	this.radius = 12;
+	this.width = 30;
+	this.height = 30;
+}
+Agent.prototype = new Vector();
+//create agents
+for (var x = 0; x < 2; x++) {
+	for (var y = 0; y < 9; y++) {
+		agents.push(new Agent(3*x + 2, 2*y + 2))
+	}
+}
+/*
+for (var i = 0; i < 9; i ++) {
+	agents.push(new Agent(1, i*2 + 2));
+}
+*/
+
+//Give the cell the agents are heading towards
+var pathEnd = grid[26][10];
+
+//Create some random obstacles in the form of towers
+var towers = new Array(); 
+
+function buildTowers() {
+	for (var i = 0; i < 150; i++) {
+		var x = parseInt(Math.random()*gridWidth);
+		var y = parseInt(Math.random()*gridHeight);
+		var validSpot = true;
+		//don't place where agents start
+		for (var j = 0; j < agents.length; j++) {
+			if (agents[j].x == x && agents[j].y == y) {
+				validSpot = false;
+			}
+		}
+		//don't place at the destionation
+		if (pathEnd.x == x && pathEnd.y == y) {
+			validSpot = false;
+		}
+		if (validSpot) {
+			towers.push(new Vector(x, y));
+		}
+	}
+}
+buildTowers();
+
+
+
+
+//Helper method. Returns true if this grid location in bounds
+function isInBounds(x, y) {
+	return x >= 0 && y >= 0 && x < gridWidth && y < gridHeight;
+}
+
+
+//function that finds adjacent (but not diagonal) cells and returns an array of them
+function neighboursOf(vector) {
+	var v = vector;
+	var x = v.x;
+	var y = v.y;
+	var neighbours = new Array();
+
+	if (isInBounds(x - 1, y)){
+		neighbours.push(grid[x - 1][y]);
+	} 
+	if (isInBounds(x, y - 1)){
+		neighbours.push(grid[x][y - 1]);
+	} 
+	if (isInBounds(x + 1, y)){
+		neighbours.push(grid[x + 1][y]);
+	
+	} 
+	if (isInBounds(x, y + 1)){
+		neighbours.push(grid[x][y + 1]);
+	}
+	return neighbours;
+}
+
+
+
+//Helper method. Returns true if this grid location is on the grid and not impassable
+function isValid(x, y) {
+	return x >= 0 && y >= 0 && x < gridWidth && y < gridHeight && grid[x][y].distance != Number.MAX_VALUE;
+}
+
+
+//Returns the non-obstructed neighbours of the given grid location.
+//Diagonals are only included if their neighbours are also not obstructed
+function allNeighboursOf(v) {
+	var res = [],
+		x = v.x,
+		y = v.y;
+
+	var left = isValid(x - 1, y),
+		up = isValid(x, y - 1),
+		right = isValid(x + 1, y),
+		down = isValid(x, y + 1);
+		
+
+	//We test each straight direction, then subtest the next one clockwise
+
+	if (left) {
+		res.push(grid[x - 1][y]);
+
+		//left up
+		if (up && isValid(x - 1, y - 1)) {
+			res.push(grid[x - 1][y - 1]);
+		}
+	}
+	if (up) {
+		res.push(grid[x][y - 1])
+
+		//up right
+		if (right && isValid(x + 1, y- 1)) {
+			res.push(grid[x + 1][y - 1]);
+		}
+	}
+	if (right) {
+		res.push(grid[x + 1][y])
+
+		//right down
+		if (down && isValid(x + 1, y + 1)) {
+			res.push(grid[x + 1][y + 1]);
+		}
+	}
+	if (down) {
+		res.push(grid[x][y + 1])
+
+		//down left
+		if (left && isValid(x - 1, y + 1)) {
+			res.push(grid[x - 1][y + 1]);
+		}
+	}
+
+	return res;
+}
+
+
+
+
+//Give each cell a distance from the pathEnd using a dijkstra grid
+function generateDijkstraGrid() {
+	//Set all places where towers are as being weight MAXINT, which will stand for not being able to go there
+	for (var i = 0; i < towers.length; i++) {
+		var t = towers[i];
+		grid[t.x][t.y].distance = Number.MAX_VALUE;
+	}
+	//flood fill from the end point
+	pathEnd.distance = 0;
+
+	var toVisit = [pathEnd]; //array which will have more cells added to it
+
+	//for each node we need to visit, starting with the pathEnd
+	for (i = 0; i < toVisit.length; i++) {
+		var neighbours = neighboursOf(toVisit[i]);
+
+		//for each neighbour of this cell
+		for (var j = 0; j < neighbours.length; j++) {
+			var n = neighbours[j];
+
+			//if unvisted make it's distance the current cell being visted plus one
+			if (n.distance == null) {
+				n.distance = toVisit[i].distance + 1;
+				toVisit.push(n);
+			}
+		}
+	}
+}
+generateDijkstraGrid();
+
+function generateFlowField() {
+	for (var x = 0; x < gridWidth; x++) {
+		for (var y = 0; y < gridHeight; y++) {
+
+			var cell = grid[x][y]
+
+			//Obstacles have no flow value; leave the direction as the zero vector
+			if (cell.distance == Number.MAX_VALUE) {
+				continue;
+			}
+
+			var neighbours = allNeighboursOf(cell);
+
+			//Go through all neighbours and find the one with the lowest distance
+			var min = null;
+			var minDist = 0;
+			for (var i = 0; i < neighbours.length; i++) {
+				var n = neighbours[i];
+				var dist = n.distance - cell.distance;
+
+				if (dist < minDist && n.distance != null) {
+					min = n;
+					minDist = dist;
+				}
+			}
+			//If we found a valid neighbour, point in its direction
+			if (min != null) {
+				cell.direction = min.minus(cell).norm();
+			}
+		}
+	}
+}
+generateFlowField();
+
+console.log(pathEnd.direction);
+
+function steeringBehaviourFlowField(agent) {
+	//Work out the force to apply to us based on the flow field grid cells we are on.
+	//we apply bilinear interpolation on the 4 grid square cells directions nearest to us to work out our force
+	// http://en.wikipedia.org/wiki/Bilinear_interpolation#Nonlinear
+
+	var floor = agent.floor(); //Coordinate of the top left square centre out of the 4
+	var x = floor.x;
+	var y = floor.y;
+
+	//The 4 weights we'll interpolate, first setting to 0 incase they aren't in bounds
+	var f00 = zeroVector;
+	var f01 = zeroVector;
+	var f10 = zeroVector;
+	var f11 = zeroVector;
+	//If statements to check for going out of bounds
+	if (isInBounds(x, y)) {
+		f00 = grid[floor.x][floor.y].direction;
+	};
+	if (isInBounds(x, y + 1)) {
+		f01 = grid[floor.x][floor.y + 1].direction;
+	}
+	if (isInBounds(x + 1, y))  {
+		f10 = grid[floor.x +1][floor.y].direction; 
+	}
+	if (isInBounds(x + 1, y + 1)) {
+		f11 = grid[floor.x + 1][floor.y + 1].direction;
+	}
+	//Do the x interpolations
+	var xWeight = agent.x - floor.x;
+
+	var top = f00.mul(1 - xWeight).plus(f10.mul(xWeight)); // f00*(1-w) + f10*(w)
+	var bottom = f01.mul(1 - xWeight).plus(f11.mul(xWeight)) //f01*(1-w) + f11*(w)
+
+	//Do the y interpolation
+	var yWeight = agent.y - floor.y;
+
+	//This is now the direction we want to be travelling in
+	var direction = top.mul(1 - yWeight).plus(bottom.mul(yWeight)).norm();
+
+	//If we are centered on a grid square with no vector this will happen
+	if (isNaN(direction.magnitude())) {
+		return zeroVector;
+	}
+	var desiredVelocity = direction.mul(agent.maxSpeed);
+
+	//The velocity change we want
+	var velocityChange = desiredVelocity.minus(agent.velocity);
+	//Convert to a force
+	return velocityChange.mul(agent.maxForce / agent.maxSpeed);
+}
+
+//Steers the agent towards grid cells with lower cost
+function steeringBehaviourLowestCost(agent) {
+
+	//Do nothing if the agent isn't moving
+	if (agent.velocity.magnitude() == 0) {
+		return zeroVector;
+	}
+	var floor = agent.floor(); //Coordinate of the top left square centre out of the 4
+	var x = floor.x;
+	var y = floor.y;
+
+	//Find our 4 closest neighbours and get their distance value
+	var f00 = Number.MAX_VALUE;
+	var f01 = Number.MAX_VALUE;
+	var f10 = Number.MAX_VALUE;
+	var f11 = Number.MAX_VALUE;
+
+	if (isValid(x, y)) {
+		f00 = grid[x][y].distance;
+	};
+	if (isValid(x, y + 1)) {
+		f01 = grid[x][y + 1].distance;
+	}
+	if (isValid(x + 1, y))  {
+		f10 = grid[x +1][y].distance; 
+	}
+	if (isValid(x + 1, y + 1)) {
+		f11 = grid[x + 1][y + 1].distance;
+	}
+
+	//Find the position(s) of the lowest, there may be multiple
+	var minVal = Math.min(f00, f01, f10, f11);
+	var minCoord = [];
+
+	if (f00 == minVal) {
+		minCoord.push(floor.plus(new Vector(0, 0)));
+	}
+	if (f01 == minVal) {
+		minCoord.push(floor.plus(new Vector(0, 1)));
+	}
+	if (f10 == minVal) {
+		minCoord.push(floor.plus(new Vector(1, 0)));
+	}
+	if (f11 == minVal) {
+		minCoord.push(floor.plus(new Vector(1, 1)));
+	} 
+
+
+	//Tie-break by choosing the one we are most aligned with
+	var currentDirection = agent.velocity.norm();
+	var desiredDirection =  zeroVector;
+	minVal = Number.MAX_VALUE;
+	for (var i = 0; i < minCoord.length; i++) {
+		//the direction to the coord from the agent
+		var directionTo = minCoord[i].minus(agent).norm();
+		//the magnitude of difference from the current vector to direction of the coord from the agent
+		var magnitude = directionTo.minus(currentDirection).magnitude();
+		//if it's the smallest magnitude, set it as the desiredDirection
+		if (magnitude < minVal) {
+			minVal = magnitude;
+			desiredDirection = directionTo;
+		}
+	}
+
+	//Convert to a force
+	var force = desiredDirection.mul(agent.maxForce / agent.maxSpeed);
+	return force;
+}
+console.log(agents[0].__proto__);
+
+function moveAgents() {
+	for (var i = 0; i < agents.length; i++) {
+		var a = agents[i];
+
+		//Work out the force for our behaviour
+		var flowField = steeringBehaviourFlowField(a);
+		var lowestCost = steeringBehaviourLowestCost(a);
+		var force = (flowField.mul(0.97) ).plus( lowestCost.mul(0.03)); //seems to be pretty perfect with only skipping diagonals 0.25 of a square before the end
+
+		//Apply the force
+		a.velocity = a.velocity.plus(force);
+
+		//Cap speed as required
+		var speed = a.velocity.magnitude();
+		if (speed > a.maxSpeed) {
+			a.velocity = a.velocity.mul(a.maxSpeed/speed);
+		}
+		//Calculate our new movement angle
+		a.rotation = a.velocity.angle();
+
+		//Move a bit
+		a.x += a.velocity.x;
+		a.y += a.velocity.y;
+		
+	}
+}
+
+
+//
+//
+//
+//
+//
+//
+//
+//
+//DRAWING
+
+var canvas = document.getElementById('canvas')
+var ctx = document.getElementById('canvas').getContext('2d');
+
+//Literally just drawing lines
+function drawGridLines() {
+	ctx.strokeStyle = "black";
+	for (var x = 0; x < gridWidth; x++){
+		ctx.beginPath();
+		ctx.moveTo(x*35, 0);
+		ctx.lineTo(x*35, gridHeight*35);
+		ctx.stroke();
+		}
+	for (var y = 0; y < gridHeight; y++){
+		ctx.beginPath();
+		ctx.moveTo(0, y*35);
+		ctx.lineTo(gridWidth*35, y*35);
+		ctx.stroke();
+		}
+}
+
+function drawAgents() {
+	
+	for (var i = 0; i < agents.length; i++) {
+		var a = agents[i];
+		//save the state
+		ctx.save();
+
+		//draw a circle
+		ctx.beginPath();
+		ctx.arc(a.x*35 + 17.5, a.y*35 + 17.5, a.radius, 0, 2*Math.PI,true);
+		ctx.closePath();
+		ctx.lineWidth = 2
+		ctx.strokeStyle = "black";
+		ctx.stroke()
+
+		//draw an arrow inside to indicate velocity
+		//arrow line
+		ctx.beginPath();
+		ctx.moveTo(a.x*35 + 17.5, a.y*35 + 17.5);
+		ctx.lineTo(a.x*35 + 17.5 + a.radius*Math.cos(a.rotation), a.y*35 + 17.5 + a.radius*Math.sin(a.rotation));
+		ctx.stroke();
+		//arrow head
+
+		//restore back to original stage
+		ctx.restore();
+	}
+}
+
+
+
+function drawTowers() {
+	for (i = 0; i < towers.length; i++) {
+		var t = towers[i];
+		ctx.beginPath();
+		ctx.arc(t.x*35 + 17.5, t.y*35 + 17.5, 15, 0, 2*Math.PI,true);
+		ctx.closePath();
+		ctx.fillStyle = "green";
+		ctx.fill()
+	}
+}
+
+
+//Writes the cell distance value in eachcell
+function drawCellDistances() {
+	for (var x = 0; x < gridWidth; x++) {
+		for (var y = 0; y < gridHeight; y++) {
+			grid.font = '10px'
+			if (grid[x][y].distance <= 1000 && grid[x][y].distance >= 0) {
+				//check if the distance is an integer, otherwise display to 2 decimal places
+				ctx.fillText(grid[x][y].distance, grid[x][y].x*35 + 11, (grid[x][y].y)*35 + 21)
+			}
+		}
+	}
+}
+
+
+//Draws a line on each square to represent the flow vector
+function drawFlowField() {
+
+	for (var x = 0; x < gridWidth; x++) {
+		for (var y = 0; y < gridHeight; y++) {
+			f = grid[x][y];
+			ctx.beginPath();
+			ctx.moveTo(x*35 + 17.5, y*35 + 17.5)
+			ctx.lineTo(x*35 + 17.5 + f.direction.x*17.5, y*35 + 17.5 + f.direction.y*17.5)
+			ctx.strokeStyle = "blue"
+			ctx.stroke();
+		}
+	}
+}
+
+function runAnimation() {
+	//clear the frame
+	ctx.clearRect(0,0, gridWidth*35, gridHeight*35);
+
+	//draw shit
+	drawGridLines();
+	drawAgents();
+	drawTowers();
+	drawCellDistances();
+	drawFlowField();
+	moveAgents();
+
+	window.requestAnimationFrame(runAnimation);
+}
+
+function setup() {
+	console.log("fart poop");
+}
+setup()
+window.requestAnimationFrame(runAnimation);
+
+
+
+
+
+
+</script>
+
+</body>
+</html>
