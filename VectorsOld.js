@@ -47,6 +47,6 @@ Vector.prototype.floor = function() {
 	return new Vector (Math.floor(this.x), Math.floor(this.y));
 }
 
-var zeroVector = new Vector (0, 0);
+var zeroVector = new Vector (0, 0); // this is bad
 
 

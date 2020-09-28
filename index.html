@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Flow field</title>
+	<canvas id="canvas" width="1050px" height="700px" style="border:1px solid #000000;"></canvas>
+	<script src="VectorsOld.js"></script>
+	<script src="js/Game.js"></script>
+	<script src="js/Grid.js"></script>
+	<script src="js/Agent.js"></script>
+	<script src="js/Steering.js"></script>
+
+
+</head>
+<body>
+
+<script type="text/javascript">
+
+var canvas = document.getElementById('canvas')
+var ctx = document.getElementById('canvas').getContext('2d');
+
+function buildTowers(towers, gridWidth, gridHeight,agents, pathEnd) {
+	for (var i = 0; i < 150; i++) {
+		var x = parseInt(Math.random()*gridWidth);
+		var y = parseInt(Math.random()*gridHeight);
+		var validSpot = true;
+		//don't place where agents start
+		for (var j = 0; j < agents.length; j++) {
+			if (agents[j].x == x && agents[j].y == y) {
+				validSpot = false;
+			}
+		}
+		//don't place at the destionation
+		if (pathEnd.x == x && pathEnd.y == y) {
+			validSpot = false;
+		}
+		if (validSpot) {
+			towers.push(new Tower(x, y));
+		}
+	}
+}
+
+function drawTowers(towers, ctx) {
+	for (i = 0; i < towers.length; i++) {
+		var t = towers[i];
+		ctx.beginPath();
+		ctx.arc(t.x*35 + 17.5, t.y*35 + 17.5, 15, 0, 2*Math.PI,true);
+		ctx.closePath();
+		ctx.fillStyle = "green";
+		ctx.fill()
+	}
+}
+
+function drawCellDistances(grid,cells,ctx) {
+	ctx.font = '10px';
+	for (let x = 0; x < grid.width; x++) {
+		for (let y = 0; y < grid.height; y++) {
+			cell = cells[x][y]
+			// distance = cell.disntace
+			if (cell.distance <= 1000 && cell.distance >= 0) {
+				//check if the distance is an integer, otherwise display to 2 decimal places
+				ctx.fillText(cell.distance, cell.x*35 + 11, (cell.y)*35 + 21)
+			}
+		}
+	}
+}
+
+function drawFlowField(grid, ctx) {
+
+	for (var x = 0; x < grid.width; x++) {
+		for (var y = 0; y < grid.height; y++) {
+			f = grid.cells[x][y];
+			ctx.beginPath();
+			ctx.moveTo(x*35 + 17.5, y*35 + 17.5)
+			ctx.lineTo(x*35 + 17.5 + f.direction.x*17.5, y*35 + 17.5 + f.direction.y*17.5)
+			ctx.strokeStyle = "blue"
+			ctx.stroke();
+		}
+	}
+}
+
+//function that finds adjacent (but not diagonal) cells and returns an array of them
+function neighboursOf(vector, grid) {
+	var v = vector;
+	var x = v.x;
+	var y = v.y;
+	var neighbours = new Array();
+
+	if (isInBounds(x - 1, y, grid.width, grid.height)) {
+		neighbours.push(grid.cells[x - 1][y]);
+	} 
+
+	if (isInBounds(x, y - 1, grid.width, grid.height)) {
+		neighbours.push(grid.cells[x][y - 1]);
+	} 
+	if (isInBounds(x + 1, y, grid.width, grid.height)) {
+		neighbours.push(grid.cells[x + 1][y]);
+	
+	} 
+	if (isInBounds(x, y + 1, grid.width, grid.height)) {
+		neighbours.push(grid.cells[x][y + 1]);
+	}
+	return neighbours;
+}
+
+//Give each cell a distance from the pathEnd using a dijkstra grid
+function generateDijkstraGrid(grid, pathEnd) {
+	const towers = grid.towers
+	//Set all places where towers are as being weight MAXINT, which will stand for not being able to go there
+	for (var i = 0; i < towers.length; i++) {
+		var t = towers[i];
+		grid.cells[t.x][t.y].distance = Number.MAX_VALUE;
+	}
+	//flood fill from the end point
+	pathEnd.distance = 0;
+
+	var toVisit = [pathEnd]; //array which will have more cells added to it
+
+	//for each node we need to visit, starting with the pathEnd
+	for (i = 0; i < toVisit.length; i++) {
+		var neighbours = neighboursOf(toVisit[i], grid);
+
+		//for each neighbour of this cell
+		for (var j = 0; j < neighbours.length; j++) {
+			var n = neighbours[j];
+
+			//if unvisted make it's distance the current cell being visted plus one
+			if (n.distance == null) {
+				n.distance = toVisit[i].distance + 1;
+				toVisit.push(n);
+			}
+		}
+	}
+}
+
+//Returns the non-obstructed neighbours of the given grid location.
+//Diagonals are only included if their neighbours are also not obstructed
+function allNeighboursOf(v, cells, gridWidth, gridHeight) {
+	var res = [],
+		x = v.x,
+		y = v.y;
+
+	var left  = isValid(x - 1, y, gridWidth, gridHeight, cells),
+		up    = isValid(x, y - 1, gridWidth, gridHeight, cells),
+		right = isValid(x + 1, y, gridWidth, gridHeight, cells),
+		down  = isValid(x, y + 1, gridWidth, gridHeight, cells);
+
+	//We test each straight direction, then subtest the next one clockwise
+
+	if (left) {
+		res.push(cells[x - 1][y]);
+
+		//left up
+		if (up && isValid(x - 1, y - 1, gridWidth, gridHeight, cells)) {
+			res.push(cells[x - 1][y - 1]);
+		}
+	}
+	if (up) {
+		res.push(cells[x][y - 1])
+
+		//up right
+		if (right && isValid(x + 1, y- 1, gridWidth, gridHeight, cells)) {
+			res.push(cells[x + 1][y - 1]);
+		}
+	}
+	if (right) {
+		res.push(cells[x + 1][y])
+
+		//right down
+		if (down && isValid(x + 1, y + 1, gridWidth, gridHeight, cells)) {
+			res.push(cells[x + 1][y + 1]);
+		}
+	}
+	if (down) {
+		res.push(cells[x][y + 1])
+
+		//down left
+		if (left && isValid(x - 1, y + 1)) {
+			res.push(cells[x - 1][y + 1]);
+		}
+	}
+
+	return res;
+}
+
+function generateFlowField(grid) {
+	for (let x = 0; x < grid.width; x++) {
+		for (let y = 0; y < grid.height; y++) {
+
+			var cell = grid.cells[x][y]
+
+			//Obstacles have no flow value; leave the direction as the zero vector
+			if (cell.distance == Number.MAX_VALUE) {
+				continue;
+			}
+
+			var neighbours = allNeighboursOf(cell, grid.cells, grid.width, grid.height);
+
+			//Go through all neighbours and find the one with the lowest distance
+			var min = null;
+			var minDist = 0;
+			for (var i = 0; i < neighbours.length; i++) {
+				var n = neighbours[i];
+				var dist = n.distance - cell.distance;
+
+				if (dist < minDist && n.distance != null) {
+					min = n;
+					minDist = dist;
+				}
+			}
+			//If we found a valid neighbour, point in its direction
+			if (min != null) {
+				cell.direction = min.minus(cell).norm();
+			}
+		}
+	}
+}
+
+
+function setup() {
+	game = new Game();
+
+	const canvas = document.getElementById('canvas')
+	const ctx = document.getElementById('canvas').getContext('2d');
+	const gridWidth = 30;
+	const gridHeight = 30;
+	const grid = new Grid(gridWidth, gridHeight, canvas);
+	grid.generate_cells();
+
+	const pathEnd = grid.cells[26][10];
+	// for (var i = 0; i < grid.cells.length; i ++) {
+	// 	grid.cells[i][3].distance = 6;
+	// }
+	// grid.cells[4][3].distance = 6;
+
+	
+	
+	billy = new Agent(4,3);
+
+	//create agents
+	for (var x = 0; x < 2; x++) {
+		for (var y = 0; y < 9; y++) {
+			game.agents.push(new Agent(3*x + 2, 2*y + 2))
+		}
+	}
+	buildTowers(grid.towers, gridWidth, gridHeight, game.agents, pathEnd);
+	generateDijkstraGrid(grid, pathEnd);
+	generateFlowField(grid);
+
+	while (grid.towers.length < 150) {
+		grid.add_tower(game.agents);
+	}
+
+	// INSTEAD OF DRAWING TOWERS YOU SHOULD JUST MARK CELLS TO HAVE A IS_TOWER PROPERTY
+
+	runAnimation(grid, game.agents, ctx)
+}
+
+
+setup()
+
+// function runAnimation(grid, agents, ctx) {
+function runAnimation(grid, agents, ctx) {
+	ctx.clearRect(0,0, grid.width*35, grid.height*35);
+
+	drawTowers(grid.towers,ctx);
+	// drawFlowField(grid, ctx);
+	// drawCellDistances(grid,grid.cells,ctx);
+	grid.draw(); // the grid drawing goes further than the actual grid
+	game.draw_agents();
+
+	// Move agents
+	for (let i = 0; i < game.agents.length; i++) {
+		let a = game.agents[i];
+		move_agent(a, grid)
+	}
+
+	requestAnimationFrame(function() {
+    	runAnimation(grid, agents, ctx);
+	});
+	
+}
+
+// there should be an agent.move() method? Or maybe not?
+function move_agent(agent, grid) {
+	agent.velocity = new Vector (1,0);
+	let flowField = steeringBehaviourFlowField(agent, grid);
+	let lowestCost = steeringBehaviourLowestCost(agent, grid); // not sure if working, should not have access function isValid
+	var force = (flowField.mul(0.97) ).plus( lowestCost.mul(0.03)); //seems to be pretty perfect with only skipping diagonals 0.25 of a square before the end
+
+	//Apply the force
+	agent.velocity = agent.velocity.plus(force);
+
+	//Cap speed as required
+	var speed = agent.velocity.magnitude();
+	if (speed > agent.maxSpeed) {
+		agent.velocity = agent.velocity.mul(agent.maxSpeed/speed);
+	}
+	//Calculate our new movement angle
+	agent.rotation = agent.velocity.angle();
+
+	//Move a bit
+	agent.x += agent.velocity.x;
+	agent.y += agent.velocity.y;
+}
+
+
+
+
+
+
+</script>
+
+</body>
+</html>
