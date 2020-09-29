@@ -23,10 +23,6 @@ class Grid {
     constructor(width, height, canvas) {
         this.width = width;
         this.height = height;
-        this.canvas = canvas;
-        this.ctx = canvas.getContext('2d');
-        this.canvasWidth = canvas.width; // use this to dynamically size
-        this.canvasHeight = canvas.height; // use this to dynamically size
         this.cells = new Array();
         this.towers= [];
 

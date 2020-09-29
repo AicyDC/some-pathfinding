@@ -9,6 +9,10 @@ function isValid(x, y, gridWidth, gridHeight, cells) {
 	return x >= 0 && y >= 0 && x < gridWidth && y < gridHeight && cells[x][y].distance != Number.MAX_VALUE;
 }
 
+function test_boy() {
+	console.log("test")
+}
+
 function steeringBehaviourFlowField(agent, grid) {
 	//Work out the force to apply to us based on the flow field grid cells we are on.
 	//we apply bilinear interpolation on the 4 grid square cells directions nearest to us to work out our force
@@ -25,12 +29,12 @@ function steeringBehaviourFlowField(agent, grid) {
 	var f00 = zeroVector;
 	var f01 = zeroVector;
 	var f10 = zeroVector;
-    var f11 = zeroVector;
+	var f11 = zeroVector;
 
 	//If statements to check for going out of bounds
 	if (isInBounds(x, y, gridWidth, gridHeight)) {
 		f00 = grid.cells[floor.x][floor.y].direction;
-	};
+	} 
 	if (isInBounds(x, y + 1, gridWidth, gridHeight)) {
 		f01 = grid.cells[floor.x][floor.y + 1].direction;
 	}

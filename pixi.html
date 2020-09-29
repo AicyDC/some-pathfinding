@@ -1,82 +1,53 @@
 <!DOCTYPE html>
 <html>
 <head>
-	<title>Flow field</title>
-	<canvas id="canvas" width="1050px" height="700px" style="border:1px solid #000000;"></canvas>
-	<script src="VectorsOld.js"></script>
-	<script src="js/Game.js"></script>
-	<script src="js/Grid.js"></script>
-	<script src="js/Agent.js"></script>
-	<script src="js/Steering.js"></script>
-
-
+	<title>Pixi</title>
+	<script src = "pixi.min.js"></script>
+	<script src = "VectorsOld.js"></script>
+	<script src = "js/Game.js"></script>
+	<script src = "js/Grid.js"></script>
+	<script src = "js/Agent.js"></script>
+	<script src = "js/Steering.js"></script>
 </head>
 <body>
 
 <script type="text/javascript">
 
-var canvas = document.getElementById('canvas')
-var ctx = document.getElementById('canvas').getContext('2d');
-
-function buildTowers(towers, gridWidth, gridHeight,agents, pathEnd) {
-	for (var i = 0; i < 150; i++) {
-		var x = parseInt(Math.random()*gridWidth);
-		var y = parseInt(Math.random()*gridHeight);
-		var validSpot = true;
-		//don't place where agents start
-		for (var j = 0; j < agents.length; j++) {
-			if (agents[j].x == x && agents[j].y == y) {
-				validSpot = false;
-			}
-		}
-		//don't place at the destionation
-		if (pathEnd.x == x && pathEnd.y == y) {
-			validSpot = false;
-		}
-		if (validSpot) {
-			towers.push(new Tower(x, y));
-		}
-	}
+// Start PIXI
+let type = "WebGL"
+if(!PIXI.utils.isWebGLSupported()){
+	type = "canvas"
 }
 
-function drawTowers(towers, ctx) {
-	for (i = 0; i < towers.length; i++) {
-		var t = towers[i];
-		ctx.beginPath();
-		ctx.arc(t.x*35 + 17.5, t.y*35 + 17.5, 15, 0, 2*Math.PI,true);
-		ctx.closePath();
-		ctx.fillStyle = "green";
-		ctx.fill()
-	}
-}
+///////////////////////////////////////////////////
+////////////////////// PIXI ///////////////////////
+///////////////////////////////////////////////////
 
-function drawCellDistances(grid,cells,ctx) {
-	ctx.font = '10px';
-	for (let x = 0; x < grid.width; x++) {
-		for (let y = 0; y < grid.height; y++) {
-			cell = cells[x][y]
-			// distance = cell.disntace
-			if (cell.distance <= 1000 && cell.distance >= 0) {
-				//check if the distance is an integer, otherwise display to 2 decimal places
-				ctx.fillText(cell.distance, cell.x*35 + 11, (cell.y)*35 + 21)
-			}
-		}
+// Create a Pixi Application
+// http://pixijs.download/release/docs/PIXI.Application.html
+let app = new PIXI.Application({
+width: 1050,         // default: 800
+height: 700,        // default: 600
+antialias: true,    // default: false
+transparent: false, // default: false
+resolution: 1       // default: 1
 	}
-}
+);
+// Make the canvas fil the entire window
+// app.renderer.view.style.position = "absolute";
+// app.renderer.view.style.display = "block";
+// app.renderer.autoResize = true;
+// app.renderer.resize(window.innerWidth, window.innerHeight);
 
-function drawFlowField(grid, ctx) {
+app.renderer.backgroundColor = 0x061639;
+app.renderer.backgroundColor = 0xffffff;
 
-	for (var x = 0; x < grid.width; x++) {
-		for (var y = 0; y < grid.height; y++) {
-			f = grid.cells[x][y];
-			ctx.beginPath();
-			ctx.moveTo(x*35 + 17.5, y*35 + 17.5)
-			ctx.lineTo(x*35 + 17.5 + f.direction.x*17.5, y*35 + 17.5 + f.direction.y*17.5)
-			ctx.strokeStyle = "blue"
-			ctx.stroke();
-		}
-	}
-}
+// Add the canvas that Pixi automatically created for you to the HTML document
+document.body.appendChild(app.view);
+
+///////////////////////////////////////////////////
+////////////////////// PIXI ///////////////////////
+///////////////////////////////////////////////////
 
 //function that finds adjacent (but not diagonal) cells and returns an array of them
 function neighboursOf(vector, grid) {
@@ -215,15 +186,75 @@ function generateFlowField(grid) {
 	}
 }
 
+function buildTowers(towers, gridWidth, gridHeight,agents, pathEnd) {
+	for (var i = 0; i < 150; i++) {
+		var x = parseInt(Math.random()*gridWidth);
+		var y = parseInt(Math.random()*gridHeight);
+		var validSpot = true;
+		//don't place where agents start
+		for (var j = 0; j < agents.length; j++) {
+			if (agents[j].x == x && agents[j].y == y) {
+				validSpot = false;
+			}
+		}
+		//don't place at the destionation
+		if (pathEnd.x == x && pathEnd.y == y) {
+			validSpot = false;
+		}
+		if (validSpot) {
+			towers.push(new Tower(x, y));
+		}
+	}
+}
+
+function drawGrid(width, height) {
+	for ( let x = 0; x < width; x ++) {
+        let line = new PIXI.Graphics();
+        line.lineStyle(2, 0x000000, 1);
+        line.moveTo(x*35, 0);
+        line.lineTo(x*35, 20*35);
+	    app.stage.addChild(line)
+	}
+	for (let y = 0; y < height; y++ ) {
+		let line = new PIXI.Graphics();
+		line.lineStyle(2, 0x000000, 1);
+		line.moveTo(0, y*35);
+		line.lineTo(width*35, y*35);
+		app.stage.addChild(line)
+	}
+}
+
+function drawTowers(towers) {
+	for (i = 0; i < towers.length; i++) {
+		let t = towers[i];
+		let circle = new PIXI.Graphics();
+		circle.beginFill(0x008000);
+		circle.drawCircle(t.x*35 + 17.5, t.y*35 + 17.5, 15);
+		circle.endFill();
+		app.stage.addChild(circle);
+	}
+}
+
+
+function drawFlowField(grid) {
+
+for (var x = 0; x < grid.width; x++) {
+	for (var y = 0; y < grid.height; y++) {
+		f = grid.cells[x][y];
+		let line = new PIXI.Graphics();
+		line.lineStyle(2, 0x000000, 1);
+		line.moveTo(x*35 + 17.5, y*35 + 17.5);
+		line.lineTo(x*35 + 17.5 + f.direction.x*17.5, y*35 + 17.5 + f.direction.y*17.5)
+		app.stage.addChild(line)
+	}
+}
+}
 
 function setup() {
 	game = new Game();
-
-	const canvas = document.getElementById('canvas')
-	const ctx = document.getElementById('canvas').getContext('2d');
 	const gridWidth = 30;
 	const gridHeight = 30;
-	const grid = new Grid(gridWidth, gridHeight, canvas);
+	const grid = new Grid(gridWidth, gridHeight);
 	grid.generate_cells();
 
 	const pathEnd = grid.cells[26][10];
@@ -234,47 +265,25 @@ function setup() {
 			game.agents.push(new Agent(3*x + 2, 2*y + 2))
 		}
 	}
+	// console.log(game.agents[0].sprite);
+	// game.agents[0].sprite.x = 60;
+
 	buildTowers(grid.towers, gridWidth, gridHeight, game.agents, pathEnd);
 	generateDijkstraGrid(grid, pathEnd);
 	generateFlowField(grid);
 
-	while (grid.towers.length < 150) {
-		grid.add_tower(game.agents);
-	}
+	drawGrid(gridWidth, gridHeight);
+	drawFlowField(grid);
+	drawTowers(grid.towers);
+	// game.draw_agents();
 
-	// INSTEAD OF DRAWING TOWERS YOU SHOULD JUST MARK CELLS TO HAVE A IS_TOWER PROPERTY
-
-	runAnimation(grid, game.agents, ctx)
+	runAnimation(grid, game);
 }
 
-
-setup()
-
-// function runAnimation(grid, agents, ctx) {
-function runAnimation(grid, agents, ctx) {
-	ctx.clearRect(0,0, grid.width*35, grid.height*35);
-
-	drawTowers(grid.towers,ctx);
-	// drawFlowField(grid, ctx);
-	// drawCellDistances(grid,grid.cells,ctx);
-	grid.draw(); // the grid drawing goes further than the actual grid
-	game.draw_agents();
-
-	// Move agents
-	for (let i = 0; i < game.agents.length; i++) {
-		let a = game.agents[i];
-		move_agent(a, grid)
-	}
-
-	requestAnimationFrame(function() {
-    	runAnimation(grid, agents, ctx);
-	});
-	
-}
-
-// there should be an agent.move() method? Or maybe not?
 function move_agent(agent, grid) {
-	agent.velocity = new Vector (1,0);
+	// agent.velocity = new Vector (1,0);
+	// let poop = test_boy();
+	steeringBehaviourFlowField(agent, grid);
 	let flowField = steeringBehaviourFlowField(agent, grid);
 	let lowestCost = steeringBehaviourLowestCost(agent, grid); // not sure if working, should not have access function isValid
 	var force = (flowField.mul(0.97) ).plus( lowestCost.mul(0.03)); //seems to be pretty perfect with only skipping diagonals 0.25 of a square before the end
@@ -291,14 +300,34 @@ function move_agent(agent, grid) {
 	agent.rotation = agent.velocity.angle();
 
 	//Move a bit
+	// change agent's pos
 	agent.x += agent.velocity.x;
 	agent.y += agent.velocity.y;
+
+	// change agent sprite pos
+	agent.sprite.x += agent.velocity.x;
+	agent.sprite.y += agent.velocity.y;
+
+	// change angent sprite line pos
+	// agent.sprite_line.rotation = agent.velocity.angle();
+	// agent.sprite_line.x = agent.sprite.x
+	// agent.sprite_line.y = agent.sprite.y
 }
 
+setup()
 
+function runAnimation(grid, game) {
+	gridWidth = 30
+	gridHeight = 30 
 
+	for (let i = 0; i < game.agents.length; i++){
+		move_agent(game.agents[i], grid);
+	}
 
-
+	requestAnimationFrame(function() {
+    	runAnimation(grid, game);
+	});
+}
 
 </script>
 
