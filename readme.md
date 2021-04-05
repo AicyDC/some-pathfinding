@@ -3,7 +3,8 @@
 
 This repository shows some pathfinding examples in javascript.
 
-It makes use of dijkstras algorithm to generate the path. A* would probably be better but this was my first attempt.
+It randomly genereates a grid, some 'agents' in the form of circles, and a some obstacles to try and move around on each refresh of the page.
+It makes use of dijkstras algorithm to generate a path for the agents to follow around the obstacles and to the end point. The A* algorithm would probably have been better but this was my first attempt.
 
 
 ## How to use
